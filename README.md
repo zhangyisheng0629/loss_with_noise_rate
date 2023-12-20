@@ -9,13 +9,13 @@ change the code in `data/data_dir` to your own dataset path.
 ```shell
 python sele.py --conf_path=./configs/select/resnet18_cifar10.yaml
  ```
-you can change the settings in the `configs` folder.
+
 
 ### select with threshold 
 ```shell
 python sele.py --conf_path=./configs/select/resnet18_cifar10_thre.yaml
  ```
-
+you can change the settings in the `configs` folder.
 
 # Stage2: Generate samplewise perturbation(ue) and
 # Stage3: Train with ue

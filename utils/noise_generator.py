@@ -107,7 +107,11 @@ class NoiseGenerator():
         print(f"Train {self.train_steps} steps.")
 
         for step in tqdm(range(self.train_steps)):
-            batch = next(self.data_iter)
+            try:
+                batch = next(self.data_iter)
+            except Exception as e:
+                self.data_iter=iter(self.data_iter)
+                batch=next(self.data_iter)
             if "Noise" in self.loader.dataset.__class__.__name__:
                 (X, noise_target, true_target, if_noise) = batch.values()
                 X, y = X, noise_target
@@ -202,6 +206,7 @@ class NoiseGenerator():
 
 if __name__ == '__main__':
     dataset = get_dataset(
+        "ue_gen",
         "cifar-10",
         noise_rate=0,
         train_aug=False
@@ -213,11 +218,19 @@ if __name__ == '__main__':
         drop_last=False,
         num_workers=0
     )
+    order_train_loader=DataLoader(
+        dataset=dataset["train"],
+        batch_size=512,
+        shuffle=False,
+        drop_last=False,
+        num_workers=0
+    )
     logger = Logger(0, log_loss=False)
     model = torchvision.models.resnet18().to(device)
+    model.eval()
     attack = PGD(model, eps=8 / 255, steps=20, alpha=0.8 / 255)
     attack.set_mode_targeted_by_function(target_map_function=lambda images, labels: labels)
-    ng = NoiseGenerator(train_loader, model, 10, attack)
+    ng = NoiseGenerator(train_loader, order_train_loader,model, 10, attack)
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-1, weight_decay=5e-4,
                                 momentum=0.9)
     criterion = torch.nn.CrossEntropyLoss()

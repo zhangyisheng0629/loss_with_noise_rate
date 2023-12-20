@@ -70,7 +70,6 @@ class Trainer():
             X, y = batch
             X, y = X.to(self.device), y.to(self.device)
         self.optimizer.zero_grad()
-
         output = self.model(X)
         loss = self.criterion(output, y)
 
