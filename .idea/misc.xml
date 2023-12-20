@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Black">
+    <option name="sdkName" value="loss_with_noise_rate" />
+  </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="loss_with_noise_rate" project-jdk-type="Python SDK" />
+</project>

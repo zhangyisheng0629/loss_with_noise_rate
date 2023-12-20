@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="loss_with_noise_rate" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="Unlearnable-Examples">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="kenlm">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="loss_with_noise_rate">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/zys/CodeField/Py_code/loss_with_noise_rate" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/results" />
+            <excludedPath path="/zys/CodeField/Py_code/loss_with_noise_rate/results" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>
