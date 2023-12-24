@@ -1,5 +1,5 @@
 db_name: cifar-10
-total_epoch: 200
+total_epoch: 60
 data_parallel: True
 log_dir: ./results/train_with_ue/cifar-10
 #ckpt_dir: ./results/train_with_ue/cifar-10
@@ -19,7 +19,7 @@ criterion:
 
 optimizer:
   name: SGD
-  lr: 0.01
+  lr: 0.1
   weight_decay: 5e-5
   momentum: 0.9
 

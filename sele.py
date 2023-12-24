@@ -28,9 +28,9 @@ args = arg_parser.parse_args()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
-np.random.seed(seed=0)
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
+np.random.seed(seed=1)
+torch.manual_seed(1)
+torch.cuda.manual_seed_all(1)
 
 
 def main():

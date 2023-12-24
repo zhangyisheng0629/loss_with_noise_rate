@@ -24,9 +24,9 @@ arg_parser = ArgumentParser()
 arg_parser.add_argument("--conf_path", type=str, default="", help="Config file path.")
 args = arg_parser.parse_args()
 
-np.random.seed(seed=0)
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
+np.random.seed(seed=1)
+torch.manual_seed(1)
+torch.cuda.manual_seed_all(1)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 

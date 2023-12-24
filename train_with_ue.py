@@ -25,9 +25,10 @@ arg_parser.add_argument("--conf_path", type=str, default="", help="Config file p
 args = arg_parser.parse_args()
 
 config = load_conf(args.conf_path)
-np.random.seed(seed=0)
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
+np.random.seed(seed=1)
+torch.manual_seed(1)
+
+torch.cuda.manual_seed_all(1)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 
@@ -63,20 +64,20 @@ def train():
         batch_size=128,
         shuffle=True,
         drop_last=True,
-        num_workers=0
+        num_workers=40
     )
     train_inorder_loader = DataLoader(
         dataset=dataset["train"],
         batch_size=128,
         shuffle=False,
         drop_last=False,
-        num_workers=0
+        num_workers=40
     )
     val_loader = DataLoader(
         dataset=dataset["val"],
         batch_size=128,
         shuffle=False,
-        num_workers=0
+        num_workers=40
     )
     if "ckpt_dir" in config:
         ckpt_dir = config.ckpt_dir

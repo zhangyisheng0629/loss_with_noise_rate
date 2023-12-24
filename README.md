@@ -36,14 +36,17 @@ python train_with_ue.py --conf_path=./configs/train_with_ue/resnet18_cifar10_thr
 
 # Results
 
-| settings/datasets   |   | PoisonNoiseCIFAR10                |         |
-|---------------------|---|-----------------------------------|---------|
-| /                   | / | stage2(loops)      \|  stage3 acc |
-| noise_rate=0<br/>   |   | 4          \|                     |         |
-| noise_rate=0.2<br/> |   | 4\|14                             |
-|                     |   |                                   |         |
-|                     |   |                                   |         |
-|                     |   |                                   |         |
+| stage                        | settings/results | NoiseCIFAR10    | NoiseSVHN  |
+|------------------------------|------------------|-----------------|------------|
+| **stage1<br />select**       | noise_rate       | 0.2             | 0.2        |
+| -                            | threshold        | 2.5             | 2.5        |
+| -                            | recall           | 0.85            | 0.88       |
+| **stage2<br/>ue**            | attack           | PGD             | PGD        |
+| -                            | -                | alpha=0.8       | alpha=0.8  |
+| -                            | -                | steps=20        | steps=20   |
+| -                            | -                | eps=8           | eps=8      |
+| -                            | ue_attack        | samplewise      | samplewise |
+| **stage3<br/>train_with_ue** | accuracy         | 80% / 30% / 40% | about 12%  |
 
 # common problem
 
