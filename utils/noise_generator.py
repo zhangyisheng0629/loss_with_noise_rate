@@ -18,9 +18,6 @@ if torch.cuda.is_available():
     device = torch.device('cuda')
 else:
     device = torch.device('cpu')
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
-
 
 class NoiseGenerator():
     def __init__(self, loader, order_train_loader, model, train_steps=10, attack: Attack = PGD):
@@ -112,7 +109,7 @@ class NoiseGenerator():
             except Exception as e:
                 self.data_iter=iter(self.data_iter)
                 batch=next(self.data_iter)
-            if "Noise" in self.loader.dataset.__class__.__name__:
+            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__=="Subset":
                 (X, noise_target, true_target, if_noise) = batch.values()
                 X, y = X, noise_target
             else:
@@ -146,7 +143,7 @@ class NoiseGenerator():
         pos = 0
         t_loader = tqdm(enumerate(self.order_train_loader))
         for i, batch in t_loader:
-            if "Noise" in self.loader.dataset.__class__.__name__:
+            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__=="Subset":
 
                 (X, noise_target, true_target, if_noise) = batch.values()
                 X, y = X, noise_target
@@ -176,7 +173,7 @@ class NoiseGenerator():
             pred = torch.argmax(adv_output, 1)
             correct_num = torch.sum(torch.eq(pred, labels))
 
-            print(f"change the correct num {n1}---->{correct_num}")
+            print(f"change the correct num {n1}---->{correct_num}",end="")
 
             payload = {
                 "correct_num": correct_num.item(),

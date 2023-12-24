@@ -1,13 +1,17 @@
 #!/usr/bin/python
 # author eson
+import collections
 import copy
 
 import numpy as np
+import torch
 from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.datasets import SVHN
 
 from data.data_dir import DataDir
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class NoiseSVHN(SVHN):
@@ -43,6 +47,54 @@ class NoiseSVHN(SVHN):
             rand_choice_list = list(range(self.labels.min(), self.labels.max() + 1))
             rand_choice_list.remove(self.labels[idx])
             self.noise_targets[idx] = np.random.choice(rand_choice_list)
+
+
+class PoisonNoiseSVHN(NoiseSVHN):
+    def __init__(self, root, split='train', transform=None, noise_rate=0.2,noise_idx=None,
+                 download=False, poison_rate=1.0, perturbfile_path=None,
+                 perturb_type='classwise', patch_location='center', img_denoise=False,
+                 add_uniform_noise=False, poison_classwise=False, poison_classwise_idx=None):
+        super(PoisonNoiseSVHN, self).__init__(root=root, split=split, download=download, transform=transform,
+                                              noise_rate=noise_rate)
+        self.perturb_tensor = torch.load(perturbfile_path, map_location=device)
+        self.perturb_tensor = self.perturb_tensor.mul(255).clamp_(0, 255).to('cpu').numpy()
+        self.patch_location = patch_location
+        self.img_denoise = img_denoise
+        # Check Shape
+        if perturb_type == 'samplewise' and self.perturb_tensor.shape[0] != len(self):
+            raise ('Poison Perturb Tensor size not match for samplewise')
+        elif perturb_type == 'classwise' and self.perturb_tensor.shape[0] != 10:
+            raise ('Poison Perturb Tensor size not match for classwise')
+
+        self.data = self.data.astype(np.float32)
+
+        # Random Select Poison Targets
+        self.poison_samples = collections.defaultdict(lambda: False)
+        self.poison_class = []
+        self.poison_samples_idx = torch.arange(50000)[
+            torch.where(torch.isin(torch.arange(50000), noise_idx) == False, True, False)]
+
+        for idx in self.poison_samples_idx:
+            self.poison_samples[idx] = True
+            if perturb_type == 'samplewise':
+                # Sample Wise poison
+                noise = self.perturb_tensor[idx]
+                # noise = patch_noise_extend_to_img(noise, [32, 32, 3], patch_location=self.patch_location)
+            elif perturb_type == 'classwise':
+                # Class Wise Poison
+                noise = self.perturb_tensor[self.labels[idx]]
+                # noise = patch_noise_extend_to_img(noise, [32, 32, 3], patch_location=self.patch_location)
+
+            if add_uniform_noise:
+                noise = np.random.uniform(0, 8, (32, 32, 3))
+
+            self.data[idx] += noise
+            self.data[idx] = np.clip(self.data[idx], 0, 255)
+
+        self.data = self.data.astype(np.uint8)
+        print('add_uniform_noise: ', add_uniform_noise)
+        print(self.perturb_tensor.shape)
+        print('Poison samples: %d/%d' % (len(self.poison_samples), len(self)))
 
 
 if __name__ == '__main__':

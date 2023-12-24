@@ -1,16 +1,17 @@
 db_name: cifar-10
 total_epoch: 200
+data_parallel: True
 log_dir: ./results/ue/cifar-10
 #ckpt_dir: ./results/ue/cifar-10
 noise_path: ./results/select/cifar-10
 
 plot_freq: 2
-noise_rate: 0
+noise_rate: 0.2
 
 attack:
   name: PGD
   eps: 8
-  alpha: 1
+  alpha: 0.8
   steps: 20
 
 

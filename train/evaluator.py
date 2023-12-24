@@ -38,19 +38,16 @@ class Evaluator:
         self.noise_recall = 0
         self.recog_noise = True if self.loss_logger else False
 
-    def eval(self, ):
+    def eval(self, log_loss=False):
         t_loader = tqdm(enumerate(self.dataloader))
         for i, batch in t_loader:
-            payload = self.eval_batch(i, batch)
+            payload = self.eval_batch(i, batch, log_loss)
             self.logger.log(payload)
 
             # TODO : fun get_postfix() to get the postfix string show in the process bar
             # postfix=
             t_loader.set_description(f"Epoch {self.cur_epoch} batch {i}/{len(self.dataloader)}")
-            t_loader.set_postfix(
-                postfix=f"accuracy {sum(self.logger.correct_num) / self.logger.total_num:.2f}, "
-
-            )
+            t_loader.set_postfix(postfix=self.get_postfix(log_loss))
         # update recog noise rate per 100 steps
         if self.recog_noise:
             # TODO：precision and recall
@@ -65,16 +62,26 @@ class Evaluator:
         else:
             return {}
 
+    def get_postfix(self, log_loss=False):
+        if log_loss:
+            return (f"clean_avg_loss {self.logger.cal_avg_loss('clean'):.2f} , "
+                    f"noise_avg_loss {self.logger.cal_avg_loss('noise'):.2f} , "
+                    f"accuracy {sum(self.logger.correct_num) / self.logger.total_num:.2f}")
+        else:
+            return f"accuracy {sum(self.logger.correct_num) / self.logger.total_num:.2f}"
+
     def recog(self):
         return self.loss_logger.recog_noise()
 
-    def eval_batch(self, i, batch):
+    def eval_batch(self, i, batch, log_loss):
         self.model.eval()
         if "Noise" in self.dataloader.dataset.__class__.__name__:
-            X, y = batch["image"], batch["noise_target"]
+            (X, noise_target, true_target, if_noise) = batch.values()
+            X, y = X, noise_target
         # subset
         elif self.dataloader.dataset.__class__.__name__ == "Subset" and "Noise" in self.dataloader.dataset.dataset.__class__.__name__:
-            X, y = batch["image"], batch["noise_target"]
+            (X, noise_target, true_target, if_noise) = batch.values()
+            X, y = X, noise_target
         else:
             (X, y) = batch
         X, y = X.to(self.device), y.to(self.device)
@@ -92,6 +99,26 @@ class Evaluator:
             "batch_num": batch_num,
             "correct_num": correct_num,
         }
+
+        if log_loss:
+            assert self.criterion.reduction == "none"
+            batch_loss = torch.sum(loss)
+            clean_loss = torch.sum(loss[if_noise == False])
+            noise_loss = torch.sum(loss[if_noise == True])
+            loss = torch.mean(loss)
+            noise_num = torch.sum(if_noise).item()
+            clean_num = (if_noise == False).sum().item()
+            """
+                batch_noise_number:批量中的噪声个数
+                batch_loss：批量损失        
+            """
+            payload.update({
+                "clean_loss": clean_loss,
+                "noise_loss": noise_loss,
+                "clean_num": clean_num,
+                "noise_num": noise_num,
+                "batch_loss": batch_loss,
+            })
 
         for k, v in payload.items():
             if torch.is_tensor(v):

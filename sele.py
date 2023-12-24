@@ -27,14 +27,18 @@ arg_parser.add_argument("--conf_path", type=str, default="", help="Config file p
 args = arg_parser.parse_args()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 np.random.seed(seed=0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
+
+
 def main():
     config = load_conf(args.conf_path)
     criterion = instantiate(config.criterion)
     model = instantiate(config.model).to(device)
+    if config.data_parallel:
+        model = torch.nn.DataParallel(model)
     # 日期 时间
     res_folder = config.log_dir
     # res_folder = os.path.join(config.log_dir, str(datetime.now()).split(".")[0])
@@ -42,8 +46,7 @@ def main():
     make_dir(res_folder)
     make_dir(image_save_dir)
 
-    # if config.data_parallel:
-    #     model = torch.nn.DataParallel(model)
+
     optimizer = instantiate(config.optimizer, model.parameters())
     scheduler = instantiate(config.scheduler, optimizer)
     dataset = get_dataset(
@@ -56,20 +59,20 @@ def main():
         batch_size=128,
         shuffle=True,
         drop_last=True,
-        num_workers=0
+        num_workers=40
     )
     train_inorder_loader = DataLoader(
         dataset=dataset["train"],
         batch_size=128,
         shuffle=False,
         drop_last=False,
-        num_workers=0
+        num_workers=40
     )
     val_loader = DataLoader(
         dataset=dataset["val"],
         batch_size=128,
         shuffle=False,
-        num_workers=0
+        num_workers=40
     )
     # TODO: check if exists ckpt, load the trained process from saved ckpt
 
@@ -87,16 +90,18 @@ def main():
     #            |  log.json
     #            |  model.ckpt
 
-    train_logger = Logger(start_epoch=start_epoch, log_loss=True)
+    train_logger = Logger(start_epoch=start_epoch, log_loss=False)
     val_logger = Logger(start_epoch=start_epoch, log_loss=False)
+    # train_acc_logger在一个 epoch 之后计算 train acc
+    train_acc_logger = Logger(start_epoch=start_epoch, log_loss=True)
     if config.noise_rate:
-        noise_recognizer=instantiate(
+        noise_recognizer = instantiate(
             config.loss_logger,
             n=len(dataset["train"]),
             poison_idx=dataset["train"].poison_idx,
         )
     else:
-        noise_recognizer=None
+        noise_recognizer = None
     # noise_recognizer = LossLogger(
     #     n=len(dataset["train"]),
     #     poison_idx=dataset["train"].poison_idx,
@@ -125,8 +130,7 @@ def main():
         config.total_epoch,
         device
     )
-    # train_acc_logger在一个 epoch 之后计算 train acc
-    train_acc_logger = Logger(start_epoch=start_epoch, log_loss=False)
+
     train_evaluator = Evaluator(
         train_acc_logger,
         train_inorder_loader,
@@ -141,34 +145,33 @@ def main():
 
     for epoch in range(start_epoch, config.total_epoch):
         print("Train")
-        trainer.train(log_loss=True)
+        trainer.train(log_loss=False)
         print("Train eval")
-        eval_res=train_evaluator.eval()
+        eval_res = train_evaluator.eval(log_loss=True)
         print("Val eval")
         evaluator.eval()
 
         # save log file
         acc_dict = {"train_acc": train_acc_logger.cal_acc(),
                     "val_acc": evaluator.logger.cal_acc()}
-        trainer.logger.save(os.path.join(res_folder, "train_log.json"),
+        train_evaluator.logger.save(os.path.join(res_folder, "train_log.json"),
                             acc_dict,
                             **eval_res
                             )
         # save image
         plot_save_path = os.path.join(image_save_dir, f"epoch{epoch}.png")
-        pl_plot(plot_save_path, trainer.logger, acc_dict["val_acc"])
+        pl_plot(plot_save_path, train_evaluator.logger, acc_dict["val_acc"])
 
         # reset
         train_evaluator.logger.new_epoch()
-        train_evaluator.loss_logger.reset()
         trainer.logger.new_epoch()
         evaluator.logger.new_epoch()
-
+        train_evaluator.loss_logger.reset()
         # TODO:add function to the utils.plot file
 
         scheduler.step()
         save_model(res_folder, epoch, model, optimizer, scheduler)
-        save_idx(res_folder,train_evaluator.loss_logger.recog_idx)
+        save_idx(res_folder, train_evaluator.loss_logger.recog_idx)
         print(f'Ckpt saved at {os.path.join(res_folder, "state_dict.pth ")}\n'
               f'High loss sample idx saved at {os.path.join(res_folder, "noise_idx.pt")}')
         # Plot loss accuracy fig per 40 epochs

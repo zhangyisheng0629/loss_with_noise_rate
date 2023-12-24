@@ -29,9 +29,9 @@ np.random.seed(seed=0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 
-perturbfile_dir=config.perturbfile_dir
+perturbfile_path=config.perturbfile_path
 # path where result was saved
 res_folder = config.log_dir
 image_save_dir = os.path.join(res_folder, "images")
@@ -42,6 +42,9 @@ make_dir(image_save_dir)
 def train():
     criterion = instantiate(config.criterion)
     model = instantiate(config.model).to(device)
+    if config.data_parallel:
+        model = torch.nn.DataParallel(model)
+
     optimizer = instantiate(config.optimizer, model.parameters())
     scheduler = instantiate(config.scheduler, optimizer)
     dataset = get_dataset(
@@ -50,7 +53,7 @@ def train():
         train_aug=True,
         noise_rate=config.noise_rate,
         noise_idx=torch.load(os.path.join(config.noise_path, "noise_idx.pt")),
-        perturbfile_path=os.path.join(res_folder, "perturbation.pt")
+        perturbfile_path=os.path.join(perturbfile_path, "perturbation.pt")
     )
 
     # TODO:add the poison dataset in get_dataset() function
@@ -67,7 +70,7 @@ def train():
         batch_size=128,
         shuffle=False,
         drop_last=False,
-        num_workers=40
+        num_workers=0
     )
     val_loader = DataLoader(
         dataset=dataset["val"],
@@ -131,7 +134,7 @@ def train():
 
     for epoch in range(start_epoch, config.total_epoch):
         print("Train")
-        trainer.train(train_on="clean")
+        trainer.train(train_on="noise")
         print("Train eval")
         eval_res = train_evaluator.eval()
         print("Val eval")

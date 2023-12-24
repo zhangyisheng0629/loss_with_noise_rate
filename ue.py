@@ -24,11 +24,12 @@ arg_parser = ArgumentParser()
 arg_parser.add_argument("--conf_path", type=str, default="", help="Config file path.")
 args = arg_parser.parse_args()
 
-np.random.seed(seed=1)
-torch.manual_seed(1)
-torch.cuda.manual_seed_all(1)
+np.random.seed(seed=0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
+
 
 config = load_conf(args.conf_path)
 config.attack.eps /= 255
@@ -44,6 +45,9 @@ make_dir(image_save_dir)
 def ue():
     criterion = instantiate(config.criterion)
     model = instantiate(config.model).to(device)
+    if config.data_parallel:
+        model = torch.nn.DataParallel(model)
+
     optimizer = instantiate(config.optimizer, model.parameters())
 
     # 有目标投毒攻击PGD，目标为原本的正确标签
@@ -53,35 +57,33 @@ def ue():
     dataset = get_dataset(
         "ue_gen",
         "cifar-10",
-        noise_rate=0,
+        noise_rate=config.noise_rate,
         train_aug=False,
 
-        # noise_idx=torch.load(os.path.join(config.noise_path, "noise_idx.pt"))
+        noise_idx=torch.load(os.path.join(config.noise_path, "noise_idx.pt"))
     )
 
-    # subset_idx = torch.arange(50000)[torch.where(torch.isin(torch.arange(50000), idx) == False, True, False)]
-    # train_subset = get_subset(dataset["train"], subset_idx)
     # use subset to train for steps to update \theta
     train_loader = DataLoader(
         dataset=dataset["train"],
         batch_size=512,
         shuffle=False,
         drop_last=True,
-        num_workers=0
+        num_workers=40
     )
 
     # use to generate noise
     order_train_loader = DataLoader(
         dataset=dataset["train"],
-        batch_size=256,
+        batch_size=512,
         shuffle=False,
         drop_last=False,
-        num_workers=0
+        num_workers=40
     )
 
     logger = Logger(0, log_loss=False)
     ng = NoiseGenerator(train_loader, order_train_loader, model, 10, attack)
-    perturbation = ng.ue(optimizer, criterion, 0.01, logger)
+    perturbation = ng.ue(optimizer, criterion, 0.05, logger)
 
     # Ckpt
 

@@ -4,13 +4,11 @@ data_parallel: True
 log_dir: ./results/select/cifar-10
 #ckpt_dir: ./results/select/cifar-10
 
-
-plot_freq: 2
+plot_freq: 20
 noise_rate: 0.2
 loss_logger:
   name: ThreLossLogger
   thre_loss: 2.5
-
 
 model:
   name: ResNet18

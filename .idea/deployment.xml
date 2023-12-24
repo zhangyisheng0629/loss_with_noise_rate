@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="loss_with_noise_rate" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="loss_with_noise_rate" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+    <option name="confirmBeforeUploading" value="false" />
     <serverData>
       <paths name="Unlearnable-Examples">
         <serverdata>
@@ -25,6 +26,13 @@
             <excludedPath local="true" path="$PROJECT_DIR$/results" />
             <excludedPath path="/zys/CodeField/Py_code/loss_with_noise_rate/results" />
           </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="uestc1@121.48.161.165:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
         </serverdata>
       </paths>
     </serverData>

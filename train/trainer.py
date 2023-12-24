@@ -37,7 +37,7 @@ class Trainer():
     def train(self, train_on="noise", log_loss=False):
         t_loader = tqdm(enumerate(self.dataloader))
         for i, batch in t_loader:
-            payload = self.train_batch(i, batch, train_on,log_loss)
+            payload = self.train_batch(i, batch, train_on, log_loss)
 
             self.logger.log(payload)
             t_loader.set_description(f"Epoch {self.cur_epoch} batch {i}/{len(self.dataloader)}")
@@ -55,10 +55,10 @@ class Trainer():
         else:
             return f"accuracy {sum(self.logger.correct_num) / self.logger.total_num:.2f}"
 
-
-    def train_batch(self, i, batch, train_on,log_loss=False):
+    def train_batch(self, i, batch, train_on, log_loss=False):
         self.model.train()
-        if "Noise" in self.dataloader.dataset.__class__.__name__:
+        if "Noise" in self.dataloader.dataset.__class__.__name__ or \
+                self.dataloader.dataset.__class__.__name__ == "Subset":
             (X, noise_target, true_target, if_noise) = batch.values()
             if train_on == "noise":
                 X, y = X.to(self.device, non_blocking=True), noise_target.to(self.device, non_blocking=True)
@@ -73,18 +73,18 @@ class Trainer():
         output = self.model(X)
         loss = self.criterion(output, y)
 
-
         batch_num = X.shape[0]
         pred = torch.argmax(output, dim=1)
         correct_num = torch.sum(torch.eq(pred, y))
         payload = {"correct_num": correct_num,
-                   "batch_num": batch_num,}
+                   "batch_num": batch_num, }
 
         if log_loss:
+            assert self.criterion.reduction == "none"
             batch_loss = torch.sum(loss)
             clean_loss = torch.sum(loss[if_noise == False])
             noise_loss = torch.sum(loss[if_noise == True])
-            loss = torch.mean(loss)
+
             noise_num = torch.sum(if_noise).item()
             clean_num = (if_noise == False).sum().item()
             """
@@ -101,6 +101,9 @@ class Trainer():
             for k, v in payload.items():
                 if torch.is_tensor(v):
                     payload[k] = round(v.item(), 2)
+
+        if self.criterion.reduction == "none":
+            loss = torch.mean(loss)
 
         loss.backward()
         self.optimizer.step()

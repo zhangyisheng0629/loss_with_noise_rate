@@ -12,7 +12,7 @@ from data.cifar import CIFAR10, PoisonNoiseCIFAR10, PoisonCIFAR10
 from data.data_dir import DataDir
 from data.imagenet import NoiseImageNet
 from data.noise_cifar import NoiseCIFAR10
-from data.svhn import NoiseSVHN
+from data.svhn import NoiseSVHN, PoisonNoiseSVHN
 from data.tiny_imagenet import NoiseTinyImageNet, TinyImageNet
 from data.imagenet_mini import ImageNetMini, NoiseImageNetMini
 
@@ -216,7 +216,9 @@ def get_train_dataset_stage3(transform, db_name, noise_rate: float = 0, noise_id
                 split="train",
                 transform=transform["train_transform"],
                 download=True,
-                noise_rate=noise_rate
+                noise_rate=noise_rate,
+                noise_idx=noise_idx,
+                perturbfile_path=perturbfile_path,
             )
         else:
             train_dataset = SVHN(
@@ -228,8 +230,9 @@ def get_train_dataset_stage3(transform, db_name, noise_rate: float = 0, noise_id
 
     else:
         raise NotImplementedError(f"No {db_name} train dataset exist.")
+    len_data=len(train_dataset)
     if noise_idx!=None:
-        subset_idx = torch.arange(50000)[torch.where(torch.isin(torch.arange(50000), noise_idx) == False, True, False)]
+        subset_idx = torch.arange(len_data)[torch.where(torch.isin(torch.arange(len_data), noise_idx) == False, True, False)]
         train_dataset = get_subset(train_dataset, subset_idx)
     return train_dataset
 
