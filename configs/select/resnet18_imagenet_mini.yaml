@@ -1,7 +1,7 @@
 db_name: imagenet_mini
 total_epoch: 200
 data_parallel: True
-log_dir: ./results/imagenet_mini
+result_dir: ./results/imagenet_mini
 #ckpt_dir: ./results/imagenet_mini
 
 plot_freq: 2

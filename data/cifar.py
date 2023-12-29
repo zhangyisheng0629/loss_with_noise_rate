@@ -204,7 +204,7 @@ class PoisonCIFAR10(CIFAR10):
 
 class PoisonNoiseCIFAR10(NoiseCIFAR10):
     def __init__(self, root, train=True, transform=None, noise_rate=0.2, noise_idx=None,
-                 download=False, poison_rate=1.0, perturbfile_path=None,
+                 download=False, poison_rate=1.0, perturbfile_path=None, hl_perturbfile_path=None,
                  perturb_type='samplewise', patch_location='center', img_denoise=False,
                  add_uniform_noise=False, poison_classwise=False, poison_classwise_idx=None):
         super(PoisonNoiseCIFAR10, self).__init__(root=root, train=train, download=download,
@@ -215,17 +215,18 @@ class PoisonNoiseCIFAR10(NoiseCIFAR10):
             self.perturb_tensor = self.perturb_tensor.mul(255).clamp_(0, 255).permute(0, 2, 3, 1).to('cpu').numpy()
         else:
             self.perturb_tensor = self.perturb_tensor.mul(255).clamp_(0, 255).permute(0, 1, 3, 4, 2).to('cpu').numpy()
+
         self.patch_location = patch_location
         self.img_denoise = img_denoise
         self.data = self.data.astype(np.float32)
         # Check Shape
         target_dim = self.perturb_tensor.shape[0] if len(self.perturb_tensor.shape) == 4 else self.perturb_tensor.shape[
             1]
-        if perturb_type == 'samplewise' and target_dim != len(self):
-            raise ('Poison Perturb Tensor size not match for samplewise')
-        elif perturb_type == 'classwise' and target_dim != 10:
-            raise ('Poison Perturb Tensor size not match for classwise')
 
+        # if perturb_type == 'samplewise' and target_dim != len(self):
+        #     raise ('Poison Perturb Tensor size not match for samplewise')
+        # elif perturb_type == 'classwise' and target_dim != 10:
+        #     raise ('Poison Perturb Tensor size not match for classwise')
         # Random Select Poison Targets
         self.poison_samples = collections.defaultdict(lambda: False)
         self.poison_class = []
@@ -246,8 +247,12 @@ class PoisonNoiseCIFAR10(NoiseCIFAR10):
         #     self.poison_samples_idx = sorted(
         #         np.random.choice(targets, int(len(targets) * poison_rate), replace=False).tolist())
 
-        self.poison_samples_idx = torch.arange(50000)[
-            torch.where(torch.isin(torch.arange(50000), noise_idx) == False, True, False)]
+        # low loss samples perturbation
+        if noise_idx is not None:
+            self.poison_samples_idx = torch.arange(50000)[
+                torch.where(torch.isin(torch.arange(50000), noise_idx) == False, True, False)]
+        else:
+            self.poison_samples_idx=torch.arange(50000)
         for i, idx in tqdm(enumerate(self.poison_samples_idx)):
             self.poison_samples[idx] = True
             if len(self.perturb_tensor.shape) == 5:
@@ -259,16 +264,33 @@ class PoisonNoiseCIFAR10(NoiseCIFAR10):
                 # Sample Wise poison
                 noise = perturb_tensor[i]
                 noise = patch_noise_extend_to_img(noise, [32, 32, 3], patch_location=self.patch_location)
-            # elif perturb_type == 'classwise':
-            #     # Class Wise Poison
-            #     noise = perturb_tensor[self.targets[idx]]
-            #     noise = patch_noise_extend_to_img(noise, [32, 32, 3], patch_location=self.patch_location)
-            # if add_uniform_noise:
-            #     noise += np.random.uniform(0, 8, (32, 32, 3))
-
             self.data[idx] = self.data[idx] + noise
             self.data[idx] = np.clip(self.data[idx], a_min=0, a_max=255)
+
+        if hl_perturbfile_path:
+            self.hl_perturb_tensor = torch.load(hl_perturbfile_path, map_location=device)
+            if len(self.hl_perturb_tensor.shape) == 4:
+                self.hl_perturb_tensor = self.hl_perturb_tensor.mul(255).clamp_(0, 255).permute(0, 2, 3, 1).to(
+                    'cpu').numpy()
+            else:
+                self.hl_perturb_tensor = self.hl_perturb_tensor.mul(255).clamp_(0, 255).permute(0, 1, 3, 4, 2).to(
+                    'cpu').numpy()
+            # high loss samples perturbation
+            for i, idx in tqdm(enumerate(noise_idx)):
+                self.poison_samples[idx] = True
+                if len(self.hl_perturb_tensor.shape) == 5:
+                    hl_perturb_id = random.choice(range(self.hl_perturb_tensor.shape[0]))
+                    hl_perturb_tensor = self.hl_perturb_tensor[hl_perturb_id]
+                else:
+                    hl_perturb_tensor = self.hl_perturb_tensor
+                if perturb_type == 'samplewise':
+                    # Sample Wise poison
+                    noise = hl_perturb_tensor[i]
+                    noise = patch_noise_extend_to_img(noise, [32, 32, 3], patch_location=self.patch_location)
+
+                self.data[idx] = self.data[idx] + noise
+                self.data[idx] = np.clip(self.data[idx], a_min=0, a_max=255)
         self.data = self.data.astype(np.uint8)
-        print('add_uniform_noise: ', add_uniform_noise)
+
         print(self.perturb_tensor.shape)
         print('Poison samples: %d/%d' % (len(self.poison_samples), len(self)))

@@ -1,8 +1,8 @@
 db_name: cifar-10
 total_epoch: 200
 data_parallel: True
-log_dir: ./results/select/cifar-10
-#ckpt_dir: ./results/cifar-10
+result_dir: ./results/select/cifar-10
+ckpt_dir: null
 
 plot_freq: 2
 noise_rate: 0.2

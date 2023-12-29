@@ -1,10 +1,15 @@
 db_name: cifar-10
 total_epoch: 60
 data_parallel: True
-log_dir: ./results/train_with_ue/cifar-10
+result_dir: ./results/train_with_ue/cifar-10
 #ckpt_dir: ./results/train_with_ue/cifar-10
-noise_path: ./results/select/cifar-10
-perturbfile_path: ./results/ue/cifar-10
+ckpt_dir: null
+noise_path: ./results/select/cifar-10/noise_idx.pt
+perturbfile_path: ./results/ue/cifar-10/perturbation.pt
+hl_perturbfile_path: ./results/ue/cifar-10/hl_perturbation.pt
+#noise_path: null
+#hl_perturbfile_path: null
+
 plot_freq: 2
 noise_rate: 0.2
 
@@ -19,7 +24,7 @@ criterion:
 
 optimizer:
   name: SGD
-  lr: 0.1
+  lr: 0.01
   weight_decay: 5e-5
   momentum: 0.9
 

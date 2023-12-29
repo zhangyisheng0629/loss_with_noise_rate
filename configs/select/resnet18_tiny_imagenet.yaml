@@ -1,7 +1,7 @@
 db_name: tiny_imagenet
 total_epoch: 80
 data_parallel: True
-log_dir: ./results/tiny_imagenet
+result_dir: ./results/tiny_imagenet
 #ckpt_dir: ./results/tiny_imagenet
 
 plot_freq: 2

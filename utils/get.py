@@ -17,7 +17,8 @@ from data.tiny_imagenet import NoiseTinyImageNet, TinyImageNet
 from data.imagenet_mini import ImageNetMini, NoiseImageNetMini
 
 
-def get_dataset(stage, db_name, noise_rate=0, train_aug=True, noise_idx=None,perturbfile_path=None):
+def get_dataset(stage, db_name, noise_rate=0, train_aug=True, noise_idx=None, perturbfile_path=None,
+                hl_perturbfile_path=None):
     # transform
     transform = get_transform(db_name)
     if not train_aug:
@@ -30,7 +31,8 @@ def get_dataset(stage, db_name, noise_rate=0, train_aug=True, noise_idx=None,per
         train_dataset = get_train_dataset_stage12(transform, db_name, noise_rate, noise_idx=noise_idx)
     elif stage == "ue_train":
         train_dataset = get_train_dataset_stage3(transform, db_name, noise_rate, noise_idx=noise_idx,
-                                                 perturbfile_path=perturbfile_path)
+                                                 perturbfile_path=perturbfile_path,
+                                                 hl_perturbfile_path=hl_perturbfile_path)
 
     else:
         raise ValueError(f"Invalid stage name {stage}, set it from 'select, ue_gen, ue_train'. ")
@@ -128,14 +130,20 @@ def get_train_dataset_stage12(transform, db_name, noise_rate: float = 0, noise_i
 
     else:
         raise NotImplementedError(f"No {db_name} train dataset exist.")
-    if noise_idx!=None:
-        subset_idx = torch.arange(50000)[torch.where(torch.isin(torch.arange(50000), noise_idx) == False, True, False)]
-        train_dataset = get_subset(train_dataset, subset_idx)
+    if noise_idx != None:
+        total_len=len(train_dataset)
+        subset_idx = torch.arange(total_len)[torch.where(torch.isin(torch.arange(total_len), noise_idx) == False, True, False)]
+        ll_dataset = get_subset(train_dataset, subset_idx)
+        hl_dataset = get_subset(train_dataset, noise_idx)
+        train_dataset = {"ll": ll_dataset, "hl": hl_dataset}
+    else:
+        train_dataset = train_dataset
 
     return train_dataset
 
 
-def get_train_dataset_stage3(transform, db_name, noise_rate: float = 0, noise_idx=None, perturbfile_path=None):
+def get_train_dataset_stage3(transform, db_name, noise_rate: float = 0, noise_idx=None, perturbfile_path=None,
+                             hl_perturbfile_path=None):
     if db_name == "cifar-10":
 
         if noise_rate:
@@ -147,6 +155,7 @@ def get_train_dataset_stage3(transform, db_name, noise_rate: float = 0, noise_id
                 noise_rate=noise_rate,
                 noise_idx=noise_idx,
                 perturbfile_path=perturbfile_path,
+                hl_perturbfile_path=hl_perturbfile_path
             )
         else:
             train_dataset = PoisonCIFAR10(
@@ -219,6 +228,7 @@ def get_train_dataset_stage3(transform, db_name, noise_rate: float = 0, noise_id
                 noise_rate=noise_rate,
                 noise_idx=noise_idx,
                 perturbfile_path=perturbfile_path,
+                hl_perturbfile_path=hl_perturbfile_path,
             )
         else:
             train_dataset = SVHN(
@@ -230,11 +240,17 @@ def get_train_dataset_stage3(transform, db_name, noise_rate: float = 0, noise_id
 
     else:
         raise NotImplementedError(f"No {db_name} train dataset exist.")
-    len_data=len(train_dataset)
-    if noise_idx!=None:
-        subset_idx = torch.arange(len_data)[torch.where(torch.isin(torch.arange(len_data), noise_idx) == False, True, False)]
-        train_dataset = get_subset(train_dataset, subset_idx)
-    return train_dataset
+    len_data = len(train_dataset)
+    if perturbfile_path != None and hl_perturbfile_path == None:
+        if noise_idx is None:
+            return train_dataset
+        subset_idx = torch.arange(len_data)[
+            torch.where(torch.isin(torch.arange(len_data), noise_idx) == False, True, False)]
+        # only train on clean samples + ue
+        return get_subset(train_dataset, subset_idx)
+    else:
+        # train on clean samples + ue and noise samples + drm
+        return train_dataset
 
 
 def get_val_dataset(db_name, transform):

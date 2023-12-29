@@ -25,16 +25,15 @@ arg_parser.add_argument("--conf_path", type=str, default="", help="Config file p
 args = arg_parser.parse_args()
 
 config = load_conf(args.conf_path)
-np.random.seed(seed=1)
-torch.manual_seed(1)
+np.random.seed(seed=3)
+torch.manual_seed(3)
 
-torch.cuda.manual_seed_all(1)
+torch.cuda.manual_seed_all(3)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 
-perturbfile_path=config.perturbfile_path
 # path where result was saved
-res_folder = config.log_dir
+res_folder = config.result_dir
 image_save_dir = os.path.join(res_folder, "images")
 make_dir(res_folder)
 make_dir(image_save_dir)
@@ -50,11 +49,12 @@ def train():
     scheduler = instantiate(config.scheduler, optimizer)
     dataset = get_dataset(
         "ue_train",
-        "cifar-10",
+        config.db_name,
         train_aug=True,
         noise_rate=config.noise_rate,
-        noise_idx=torch.load(os.path.join(config.noise_path, "noise_idx.pt")),
-        perturbfile_path=os.path.join(perturbfile_path, "perturbation.pt")
+        noise_idx=torch.load(config.noise_path),
+        perturbfile_path=config.perturbfile_path,
+        # hl_perturbfile_path=config.hl_perturbfile_path,
     )
 
     # TODO:add the poison dataset in get_dataset() function
@@ -79,19 +79,14 @@ def train():
         shuffle=False,
         num_workers=40
     )
-    if "ckpt_dir" in config:
+    if config.ckpt_dir:
         ckpt_dir = config.ckpt_dir
         ckpt = load_model(ckpt_dir, model, optimizer, scheduler, )
-
         start_epoch = ckpt["epoch"] + 1
         print(f"File {ckpt_dir} loaded! Last training process was epoch {ckpt['epoch']}. ")
     else:
         start_epoch = 0
         print("Train from scratch. ")
-    # res_folder:|/result/cifar-10/time()
-    #            |  images/
-    #            |  log.json
-    #            |  model.ckpt
 
     train_logger = Logger(start_epoch=start_epoch, log_loss=False)
     val_logger = Logger(start_epoch=start_epoch, log_loss=False)
@@ -137,9 +132,9 @@ def train():
         print("Train")
         trainer.train(train_on="noise")
         print("Train eval")
-        eval_res = train_evaluator.eval()
+        eval_res = train_evaluator.eval(eval_on="clean")
         print("Val eval")
-        evaluator.eval()
+        evaluator.eval(eval_on="clean")
 
         # save log file
         acc_dict = {"train_acc": train_acc_logger.cal_acc(),
@@ -152,21 +147,13 @@ def train():
 
         # reset
         train_evaluator.logger.new_epoch()
-
-        # train_evaluator.loss_logger.reset()
         trainer.logger.new_epoch()
         evaluator.logger.new_epoch()
 
         # TODO:add function to the utils.plot file
-
         scheduler.step()
         save_model(res_folder, epoch, model, optimizer, scheduler)
         print(f'Ckpt saved at {os.path.join(res_folder, "state_dict.pth")}')
-
-
-
-
-
 
 
 if __name__ == '__main__':

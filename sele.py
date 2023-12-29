@@ -28,9 +28,9 @@ args = arg_parser.parse_args()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
-np.random.seed(seed=1)
-torch.manual_seed(1)
-torch.cuda.manual_seed_all(1)
+np.random.seed(seed=3)
+torch.manual_seed(3)
+torch.cuda.manual_seed_all(3)
 
 
 def main():
@@ -40,18 +40,17 @@ def main():
     if config.data_parallel:
         model = torch.nn.DataParallel(model)
     # 日期 时间
-    res_folder = config.log_dir
-    # res_folder = os.path.join(config.log_dir, str(datetime.now()).split(".")[0])
+    res_folder = config.result_dir
     image_save_dir = os.path.join(res_folder, "images")
     make_dir(res_folder)
     make_dir(image_save_dir)
-
 
     optimizer = instantiate(config.optimizer, model.parameters())
     scheduler = instantiate(config.scheduler, optimizer)
     dataset = get_dataset(
         "select",
         config.db_name,
+        train_aug=True,
         noise_rate=config.noise_rate
     )
     train_loader = DataLoader(
@@ -76,7 +75,7 @@ def main():
     )
     # TODO: check if exists ckpt, load the trained process from saved ckpt
 
-    if "ckpt_dir" in config:
+    if config.ckpt_dir:
         ckpt_dir = config.ckpt_dir
         ckpt = load_model(ckpt_dir, model, optimizer, scheduler, )
 
@@ -85,10 +84,6 @@ def main():
     else:
         start_epoch = 0
         print("Train from scratch. ")
-    # res_folder:|/result/cifar-10/time()
-    #            |  images/
-    #            |  log.json
-    #            |  model.ckpt
 
     train_logger = Logger(start_epoch=start_epoch, log_loss=False)
     val_logger = Logger(start_epoch=start_epoch, log_loss=False)
@@ -145,19 +140,19 @@ def main():
 
     for epoch in range(start_epoch, config.total_epoch):
         print("Train")
-        trainer.train(log_loss=False)
+        trainer.train(train_on="noise", log_loss=False)  # train on noise
         print("Train eval")
-        eval_res = train_evaluator.eval(log_loss=True)
+        eval_res = train_evaluator.eval(eval_on="noise", log_loss=True)  # train set  eval on noise
         print("Val eval")
-        evaluator.eval()
+        evaluator.eval(eval_on="clean", log_loss=False)  # val set   eval on clean
 
         # save log file
         acc_dict = {"train_acc": train_acc_logger.cal_acc(),
                     "val_acc": evaluator.logger.cal_acc()}
         train_evaluator.logger.save(os.path.join(res_folder, "train_log.json"),
-                            acc_dict,
-                            **eval_res
-                            )
+                                    acc_dict,
+                                    **eval_res
+                                    )
         # save image
         plot_save_path = os.path.join(image_save_dir, f"epoch{epoch}.png")
         pl_plot(plot_save_path, train_evaluator.logger, acc_dict["val_acc"])

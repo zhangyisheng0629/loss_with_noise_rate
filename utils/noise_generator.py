@@ -19,8 +19,11 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
+
 class NoiseGenerator():
-    def __init__(self, loader, order_train_loader, model, train_steps=10, attack: Attack = PGD):
+    def __init__(self, loader, order_train_loader, hl_loader, model, train_steps=10,
+                 attack: Attack = PGD,
+                 drm_attack: Attack = None):
         self.loader = loader
         self.model = model
         self.train_steps = train_steps
@@ -28,12 +31,17 @@ class NoiseGenerator():
         self.attack = attack
         self.epsilon = attack.eps
         self.step_size = attack.steps
+        self.noise_len = len(order_train_loader.dataset)
         # attack target: original label
         # self.attack.set_mode_targeted_by_function(target_map_function=lambda images, labels: labels)
-        self.noise = torch.zeros([50000, 3, 32, 32]).cuda()
+        self.noise = torch.zeros([self.noise_len, 3, 32, 32]).cuda()
         # self.noise = self.random_noise([50000, 3, 32, 32])
         self.data_iter = iter(self.loader)
         self.order_train_loader = order_train_loader
+
+        self.hl_noise = torch.zeros([self.noise_len, 3, 32, 32]).cuda()
+        self.drm_attack = drm_attack
+        self.hl_loader = hl_loader
 
     def random_noise(self, noise_shape=[50000, 3, 32, 32]):
         random_noise = torch.FloatTensor(*noise_shape).uniform_(-self.epsilon, self.epsilon).to(device)
@@ -46,6 +54,15 @@ class NoiseGenerator():
         return pos + n
 
     def add_noise(self, X: torch.Tensor, pos):
+        """
+
+        Args:
+            X: 原图片
+            pos: 加噪声的位置
+
+        Returns:
+
+        """
         for i, image in enumerate(X):
             X[i] += self.noise[pos + i]
         return X, pos + X.shape[0]
@@ -65,15 +82,13 @@ class NoiseGenerator():
         Returns:
 
         """
-        if random_noise is None:
-            random_noise = torch.FloatTensor(*images.shape).uniform_(-self.epsilon, self.epsilon).to(device)
 
-        perturb_img = Variable(images.data, requires_grad=True)
-        perturb_img = Variable(torch.clamp(perturb_img, 0, 1), requires_grad=True)
+        adv_images = images + noise
+        adv_images = adv_images.clone().detach()
+
         eta = random_noise
         for _ in range(self.step_size):
-            opt = torch.optim.SGD([perturb_img], lr=1e-3)
-            opt.zero_grad()
+            adv_images.requires_grd = True
             model.zero_grad()
             if isinstance(criterion, torch.nn.CrossEntropyLoss):
                 if hasattr(model, 'classify'):
@@ -107,9 +122,9 @@ class NoiseGenerator():
             try:
                 batch = next(self.data_iter)
             except Exception as e:
-                self.data_iter=iter(self.data_iter)
-                batch=next(self.data_iter)
-            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__=="Subset":
+                self.data_iter = iter(self.data_iter)
+                batch = next(self.data_iter)
+            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__ == "Subset":
                 (X, noise_target, true_target, if_noise) = batch.values()
                 X, y = X, noise_target
             else:
@@ -117,6 +132,7 @@ class NoiseGenerator():
             X, y = X.to(self.device), y.to(self.device)
             # print(y)
             # add noise
+            print(pos)
             X, pos = self.add_noise(X, pos)
             # bug
             # print(self.model(X))
@@ -138,12 +154,12 @@ class NoiseGenerator():
         Returns:
         for step in self.train_steps:
         """
-        self.attack.set_model_training_mode(model_training=False, batchnorm_training=True)
+        self.attack.set_model_training_mode(model_training=False)
         self.model.eval()
         pos = 0
-        t_loader = tqdm(enumerate(self.order_train_loader))
+        t_loader = tqdm(enumerate(self.order_train_loader), total=len(self.order_train_loader), ncols=150)
         for i, batch in t_loader:
-            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__=="Subset":
+            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__ == "Subset":
 
                 (X, noise_target, true_target, if_noise) = batch.values()
                 X, y = X, noise_target
@@ -153,12 +169,13 @@ class NoiseGenerator():
 
             # train on images + noise
             images, labels = X.to(self.device), y.to(self.device)
-            # print(self.model.conv1.weight)
-            # print(self.model(images))
-            images += self.noise[pos:pos + batch_num]
-            images = torch.clip(images, 0, 1)
-            adv_images = self.attack(images, labels)
-
+            noise = self.noise[pos:pos + batch_num]
+            if self.attack.__class__.__name__=="PGD":
+                adv_images = self.attack(images, labels)
+            elif self.attack.__class__.__name__=="UEPGD":
+                adv_images = self.attack(images, labels, noise)
+            else:
+                raise ValueError
             # eval noise
 
             output = self.model(images)
@@ -173,15 +190,14 @@ class NoiseGenerator():
             pred = torch.argmax(adv_output, 1)
             correct_num = torch.sum(torch.eq(pred, labels))
 
-            print(f"change the correct num {n1}---->{correct_num}",end="")
-
             payload = {
                 "correct_num": correct_num.item(),
                 "batch_num": batch_num
             }
             logger.log(payload)
 
-            t_loader.set_postfix(postfix=f"cur_pos|total_pos:{pos}|{len(self.loader.dataset)},acc: {logger.cal_acc()}")
+            t_loader.set_postfix(postfix=f"cur_pos|total_pos:{pos}|{len(self.loader.dataset)},"
+                                         f"correct num {n1}---->{correct_num},acc: {logger.cal_acc()}")
             pos = self.update_noise(pos, adv_images - images)
         accuracy = logger.cal_acc()
         return accuracy
@@ -200,6 +216,28 @@ class NoiseGenerator():
 
         return self.noise
 
+    def deep_representation_manipulation(self, criterion):
+        print("deep_representation_manipulation")
+
+        t_loader = tqdm(enumerate(self.hl_loader), total=len(self.hl_loader))
+        pos = 0
+        for i, batch in t_loader:
+            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__ == "Subset":
+
+                (X, noise_target, true_target, if_noise) = batch.values()
+                X, y = X, noise_target
+            else:
+                X, y = batch
+            batch_num = X.shape[0]
+
+            # train on images + noise
+            images = X.to(self.device)
+            adv_images = self.drm_attack(images)
+            pos = self.update_noise(pos, adv_images - images)
+            t_loader.set_postfix(postfix=f"cur_pos|total_pos:{pos}|{len(self.hl_loader.dataset)},")
+
+        return self.hl_noise
+
 
 if __name__ == '__main__':
     dataset = get_dataset(
@@ -215,7 +253,7 @@ if __name__ == '__main__':
         drop_last=False,
         num_workers=0
     )
-    order_train_loader=DataLoader(
+    order_train_loader = DataLoader(
         dataset=dataset["train"],
         batch_size=512,
         shuffle=False,
@@ -227,7 +265,7 @@ if __name__ == '__main__':
     model.eval()
     attack = PGD(model, eps=8 / 255, steps=20, alpha=0.8 / 255)
     attack.set_mode_targeted_by_function(target_map_function=lambda images, labels: labels)
-    ng = NoiseGenerator(train_loader, order_train_loader,model, 10, attack)
+    ng = NoiseGenerator(train_loader, order_train_loader, model, 10, attack)
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-1, weight_decay=5e-4,
                                 momentum=0.9)
     criterion = torch.nn.CrossEntropyLoss()

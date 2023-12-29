@@ -1,19 +1,23 @@
 db_name: svhn
 total_epoch: 200
 data_parallel: True
-log_dir: ./results/ue/svhn
+result_dir: ./results/ue/svhn
 #ckpt_dir: ./results/ue/svhn
-noise_path: ./results/select/svhn
-
+noise_path: ./results/select/svhn/noise_idx.pt
+#noise_path: null
 plot_freq: 2
 noise_rate: 0.2
 
 attack:
-  name: PGD
+  name: UEPGD
   eps: 8
   alpha: 0.8
   steps: 20
-
+drm_attack:
+  name: DeepReprentationAttack
+  eps: 8
+  alpha: 0.8
+  steps: 20
 
 model:
   name: ResNet18
@@ -22,7 +26,8 @@ model:
 
 criterion:
   name: CrossEntropyLoss
-
+hl_criterion:
+  name: CrossEntropyLoss
 
 optimizer:
   name: SGD

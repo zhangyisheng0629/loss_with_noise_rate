@@ -1,14 +1,15 @@
-db_name: svhn
-total_epoch: 60
+db_name: cifar-10
+total_epoch: 200
 data_parallel: True
-result_dir: ./results/select/svhn
-ckpt_dir: null
+log_dir: ./easy_ue_results/cifar-10
 
-plot_freq: 20
-noise_rate: 0.2
-loss_logger:
-  name: ThreLossLogger
-  thre_loss: 2.5
+
+attack:
+  name: PGD
+  eps: 8
+  alpha: 0.8
+  steps: 20
+
 
 model:
   name: ResNet18
@@ -17,12 +18,11 @@ model:
 
 criterion:
   name: CrossEntropyLoss
-  reduction: none
 
 optimizer:
   name: SGD
   lr: 0.01
-  weight_decay: 5e-4
+  weight_decay: 5e-5
   momentum: 0.9
 
 scheduler:

@@ -38,14 +38,12 @@ class Evaluator:
         self.noise_recall = 0
         self.recog_noise = True if self.loss_logger else False
 
-    def eval(self, log_loss=False):
+    def eval(self, eval_on="noise", log_loss=False):
         t_loader = tqdm(enumerate(self.dataloader))
         for i, batch in t_loader:
-            payload = self.eval_batch(i, batch, log_loss)
+            payload = self.eval_batch(i, batch, eval_on, log_loss)
             self.logger.log(payload)
 
-            # TODO : fun get_postfix() to get the postfix string show in the process bar
-            # postfix=
             t_loader.set_description(f"Epoch {self.cur_epoch} batch {i}/{len(self.dataloader)}")
             t_loader.set_postfix(postfix=self.get_postfix(log_loss))
         # update recog noise rate per 100 steps
@@ -73,22 +71,23 @@ class Evaluator:
     def recog(self):
         return self.loss_logger.recog_noise()
 
-    def eval_batch(self, i, batch, log_loss):
+    def eval_batch(self, i, batch, eval_on, log_loss):
         self.model.eval()
-        if "Noise" in self.dataloader.dataset.__class__.__name__:
+        if "Noise" in self.dataloader.dataset.__class__.__name__ or (
+                self.dataloader.dataset.__class__.__name__ == "Subset" and "Noise" in self.dataloader.dataset.dataset.__class__.__name__):
             (X, noise_target, true_target, if_noise) = batch.values()
-            X, y = X, noise_target
-        # subset
-        elif self.dataloader.dataset.__class__.__name__ == "Subset" and "Noise" in self.dataloader.dataset.dataset.__class__.__name__:
-            (X, noise_target, true_target, if_noise) = batch.values()
-            X, y = X, noise_target
+            if eval_on == "clean":
+                X, y = X, true_target
+            elif eval_on == "noise":
+                X, y = X, noise_target
+            else:
+                raise ValueError
         else:
             (X, y) = batch
         X, y = X.to(self.device), y.to(self.device)
-        # print(batch["true_target"])
         output = self.model(X)
 
-        if self.criterion and self.loss_logger:
+        if  self.loss_logger:
             loss = self.criterion(output, y)
             self.loss_logger.update(loss)
         pred = torch.argmax(output, dim=1)
@@ -105,7 +104,7 @@ class Evaluator:
             batch_loss = torch.sum(loss)
             clean_loss = torch.sum(loss[if_noise == False])
             noise_loss = torch.sum(loss[if_noise == True])
-            loss = torch.mean(loss)
+
             noise_num = torch.sum(if_noise).item()
             clean_num = (if_noise == False).sum().item()
             """
@@ -123,11 +122,4 @@ class Evaluator:
         for k, v in payload.items():
             if torch.is_tensor(v):
                 payload[k] = round(v.item(), 2)
-
-        # "acc_avg": self.acc_meters.avg,
-        # "loss": loss,
-        # "loss_avg": self.loss_meters.avg,
-        # "lr": self.optimizer.param_groups[0]['lr'],
-        # "|gn|": grad_norm
-
         return payload
