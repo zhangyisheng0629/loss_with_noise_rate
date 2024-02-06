@@ -11,15 +11,15 @@ def get_transform(db_name):
                     transforms.ToTensor(),
                     transforms.RandomResizedCrop(32),
                     transforms.RandomHorizontalFlip(),
-                    transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
-                                         std=[0.2023, 0.1994, 0.2010])
+                    # transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
+                    #                      std=[0.2023, 0.1994, 0.2010])
                 ]),
             "val_transform":
                 transforms.Compose([
                     transforms.ToTensor(),
 
-                    transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
-                                         std=[0.2023, 0.1994, 0.2010])
+                    # transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
+                    #                      std=[0.2023, 0.1994, 0.2010])
                 ])
         }
 

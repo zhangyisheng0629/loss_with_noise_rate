@@ -1,0 +1,29 @@
+db_name: cifar-100
+total_epoch: 100
+data_parallel: True
+log_dir: ./results/train_with_ue/cifar-100
+ckpt_dir: null
+#noise_path: ./results/select/cifar-100/noise_idx.pt
+noise_path: null
+perturbfile_path: ./results/ue/cifar-100/perturbation.pt
+#perturbfile_path: null
+noise_rate: 0.2
+model:
+  name: ResNet18
+  num_classes: 100
+
+
+criterion:
+  name: CrossEntropyLoss
+
+
+optimizer:
+  name: SGD
+  lr: 0.025
+  weight_decay: 5e-5
+  momentum: 0.9
+
+scheduler:
+  name: CosineAnnealingLR
+  T_max: ${total_epoch}
+  eta_min: 0.0

@@ -2,22 +2,24 @@
 # author eson
 import json
 import os
+import random
 from datetime import datetime
 
 import numpy as np
+import torch
 
 from torch.utils.data import DataLoader
 
-from end_plot import json2excel
-from utils.get import get_dataset
-from utils.plot import pl_plot
+# from end_plot import json2excel
+from utils.get import get_dataset, get_dataset_
+# from utils.plot import pl_plot
 from models import *
 from utils import *
-from train import *
+from train_utils import *
 from argparse import ArgumentParser
-from train.trainer import Trainer
-from train.logger import Logger
-from train.evaluator import Evaluator
+from train_utils.trainer import Trainer
+from train_utils.logger import Logger
+from train_utils.evaluator import Evaluator
 from utils.config import load_conf
 from mlconfig import instantiate
 from utils.common_utils import make_dir, save_model, load_model, save_idx
@@ -27,14 +29,23 @@ arg_parser.add_argument("--conf_path", type=str, default="", help="Config file p
 args = arg_parser.parse_args()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
-np.random.seed(seed=3)
-torch.manual_seed(3)
-torch.cuda.manual_seed_all(3)
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+SEED = 1
+# random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+# torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.benchmark = False
+
+config = load_conf(args.conf_path)
+for k, v in dict(config).items():
+    print(f"{k} : {v}")
 
 
 def main():
-    config = load_conf(args.conf_path)
     criterion = instantiate(config.criterion)
     model = instantiate(config.model).to(device)
     if config.data_parallel:
@@ -47,31 +58,31 @@ def main():
 
     optimizer = instantiate(config.optimizer, model.parameters())
     scheduler = instantiate(config.scheduler, optimizer)
-    dataset = get_dataset(
+    dataset = get_dataset_(
         "select",
         config.db_name,
+        noise_rate=config.noise_rate,
         train_aug=True,
-        noise_rate=config.noise_rate
     )
     train_loader = DataLoader(
         dataset=dataset["train"],
         batch_size=128,
         shuffle=True,
         drop_last=True,
-        num_workers=40
+        num_workers=32
     )
     train_inorder_loader = DataLoader(
         dataset=dataset["train"],
         batch_size=128,
         shuffle=False,
         drop_last=False,
-        num_workers=40
+        num_workers=32
     )
     val_loader = DataLoader(
         dataset=dataset["val"],
         batch_size=128,
         shuffle=False,
-        num_workers=40
+        num_workers=32
     )
     # TODO: check if exists ckpt, load the trained process from saved ckpt
 
@@ -140,7 +151,7 @@ def main():
 
     for epoch in range(start_epoch, config.total_epoch):
         print("Train")
-        trainer.train(train_on="noise", log_loss=False)  # train on noise
+        trainer.train(train_on="noise")  # train on noise
         print("Train eval")
         eval_res = train_evaluator.eval(eval_on="noise", log_loss=True)  # train set  eval on noise
         print("Val eval")
@@ -155,7 +166,7 @@ def main():
                                     )
         # save image
         plot_save_path = os.path.join(image_save_dir, f"epoch{epoch}.png")
-        pl_plot(plot_save_path, train_evaluator.logger, acc_dict["val_acc"])
+        # pl_plot(plot_save_path, train_evaluator.logger, acc_dict["val_acc"])
 
         # reset
         train_evaluator.logger.new_epoch()
@@ -170,8 +181,8 @@ def main():
         print(f'Ckpt saved at {os.path.join(res_folder, "state_dict.pth ")}\n'
               f'High loss sample idx saved at {os.path.join(res_folder, "noise_idx.pt")}')
         # Plot loss accuracy fig per 40 epochs
-        if "plot_freq" in config and not (epoch + 1) % config.plot_freq:
-            json2excel(os.path.join(res_folder, "train_log.json"), '')
+        # if "plot_freq" in config and not (epoch + 1) % config.plot_freq:
+        #     json2excel(os.path.join(res_folder, "train_log.json"), '')
 
 
 if __name__ == '__main__':

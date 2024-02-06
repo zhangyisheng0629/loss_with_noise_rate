@@ -1,0 +1,40 @@
+db_name: cifar-100
+total_epoch: 120
+data_parallel: True
+log_dir: ./results/ue/cifar-100
+#noise_path: ./results/select/cifar-100/noise_idx.pt
+noise_path: null
+ckpt_dir: null
+
+noise_rate: 0.2
+gen_on: clean
+attack:
+  name: UEPGD
+  eps: 8
+  alpha: 0.8
+  steps: 20
+
+#hl_attack
+hl: False
+model:
+  name: ResNet18
+  num_classes: 100
+
+train_steps: 20
+outer_criterion:
+  name: CrossEntropyLoss
+#  alpha: 6.0
+#  beta: 1.0
+#  num_classes: 100
+hl_criterion:
+  name: CrossEntropyLoss
+optimizer:
+  name: SGD
+  lr: 0.025
+  weight_decay: 5e-5
+  momentum: 0.9
+
+scheduler:
+  name: CosineAnnealingLR
+  T_max: ${total_epoch}
+  eta_min: 0.0

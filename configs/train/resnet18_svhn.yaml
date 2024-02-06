@@ -1,0 +1,31 @@
+db_name: svhn
+total_epoch: 30
+data_parallel: True
+log_dir: ./results/train_with_ue/svhn
+ckpt_dir: null
+noise_path: ./results/select/svhn/noise_idx.pt
+perturbfile_path: ./results/ue/svhn/perturbation.pt
+#hl_perturbfile_path: ./results/ue/svhn
+
+plot_freq: 2
+noise_rate: 0.2
+
+model:
+  name: ResNet18
+  num_classes: 10
+
+
+criterion:
+  name: CrossEntropyLoss
+
+
+optimizer:
+  name: SGD
+  lr: 0.1
+  weight_decay: 5e-5
+  momentum: 0.9
+
+scheduler:
+  name: CosineAnnealingLR
+  T_max: ${total_epoch}
+  eta_min: 0.0

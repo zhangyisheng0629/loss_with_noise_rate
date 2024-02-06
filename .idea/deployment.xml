@@ -1,16 +1,86 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="loss_with_noise_rate" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="eson@100.125.40.84:22 password (3)" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="Targeted-UE">
+      <paths name="A6000-Flip-Unlearnable-Examples">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
+      <paths name="A6000-Target-UE-old">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/eson/PyCode/Target-UE-old" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="Label-Flip-UE">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="Simple-UE">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="Target-UE">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/users/uestc1/zys/CodeField/Py_code/Targeted-Unlearable-Examples-old" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="TargetUE-old">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/users/uestc1/zys/CodeField/Py_code/Targeted-Unlearable-Examples-old" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="Targeted-UE">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/zys/CodeField/Py_code/Targeted-Unlearnable-Examples" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="Unlearnable-Examples">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="eson@100.125.40.84:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="eson@100.125.40.84:22 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/eson/PyCode/Target-UE-old" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="eson@100.125.40.84:22 password (3)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/eson/PyCode/Target-UE-old" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="eson@100.125.40.84:22 password (4)">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
@@ -27,22 +97,18 @@
       <paths name="loss_with_noise_rate">
         <serverdata>
           <mappings>
-            <mapping deploy="/zys/CodeField/Py_code/loss_with_noise_rate" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
-          <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/results" />
-            <excludedPath path="/zys/CodeField/Py_code/loss_with_noise_rate/results" />
-          </excludedPaths>
         </serverdata>
       </paths>
-      <paths name="uestc1@121.48.161.165:22 password">
+      <paths name="loss_with_noise_rate_copy">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="uestc1@121.48.161.165:22 password (2)">
+      <paths name="uestc1@121.48.161.165:22 password">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />

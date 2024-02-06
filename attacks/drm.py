@@ -4,24 +4,33 @@ import torch
 from torchattacks.attack import Attack
 
 
-class DeepReprentationAttack(Attack):
-    def __init__(self, model, eps=8 / 255, alpha=2 / 255, steps=20, criterion=None):
-        super().__init__("DeepReprentationAttack", model)
+class DeepRepresentationAttack(object):
+    def __init__(self, model, eps=8 / 255, alpha=2 / 255, steps=20, criterion=None,trans=None,target_map=None,target=True):
+        self.model=model
         self.eps = eps
         self.alpha = alpha
         self.steps = steps
         self.criterion = criterion
-
-    def forward(self, images, labels=None):
-        logits = self.model(images)
+        self.target_map=target_map
+        self.device = next(model.parameters()).device
+        self.target=target
+        self.trans=trans
+    def __call__(self, images, labels=None):
+        target=self.target_map(images,labels).to(self.device)
 
         perturb_img = images.clone().detach()
         for _ in range(self.steps):
             perturb_img.requires_grad = True
-            outputs = self.model(perturb_img)
-
+            trans_pertueb_images = self.trans(perturb_img)
+            outputs = self.model(trans_pertueb_images)
+            # if outputs.argmax(1).eq(target):
+            #     perturb_img=perturb_img.clone().detach()
+            #     break
+            if self.target:
             # far from the deep representation
-            cost = -self.criterion(outputs, logits)
+                cost = -self.criterion(outputs, target)
+            else:
+                cost=self.criterion(outputs,target)
 
             # Update adversarial images
             grad = torch.autograd.grad(
@@ -35,3 +44,5 @@ class DeepReprentationAttack(Attack):
         return perturb_img
 
 
+#!/usr/bin/python
+# author eson

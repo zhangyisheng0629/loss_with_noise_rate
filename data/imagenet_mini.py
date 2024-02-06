@@ -51,7 +51,7 @@ class NoiseImageNetMini(ImageNetMini):
         return {"image": img,
                 "noise_target": noise_target,
                 "true_target": target,
-                "if_noise ": self.if_noise[item]}
+                "if_noise": self.if_noise[item]}
 
     def __len__(self):
         return len(self.imgs)

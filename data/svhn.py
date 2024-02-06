@@ -34,7 +34,7 @@ class NoiseSVHN(SVHN):
         return {"image": img,
                 "noise_target": noise_target,
                 "true_target": target,
-                "if_noise ": self.if_noise[item]}
+                "if_noise": self.if_noise[item]}
 
     def __len__(self):
         return len(self.data)
@@ -76,11 +76,9 @@ class PoisonNoiseSVHN(NoiseSVHN):
         # Random Select Poison Targets
         self.poison_samples = collections.defaultdict(lambda: False)
         self.poison_class = []
-        if noise_idx is not None:
-            self.poison_samples_idx = torch.arange(len(self))[
-                torch.where(torch.isin(torch.arange(len(self)), noise_idx) == False, True, False)]
-        else:
-            self.poison_samples_idx=torch.arange(len(self))
+        self.poison_samples_idx = torch.arange(len(self))[
+            torch.where(torch.isin(torch.arange(len(self)), noise_idx) == False, True, False)]
+
         # low loss samples perturbation
         for i,idx in tqdm(enumerate(self.poison_samples_idx)):
             self.poison_samples[idx] = True

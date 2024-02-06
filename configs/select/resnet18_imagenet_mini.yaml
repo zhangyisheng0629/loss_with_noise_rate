@@ -1,14 +1,14 @@
 db_name: imagenet_mini
 total_epoch: 200
 data_parallel: True
-result_dir: ./results/imagenet_mini
-#ckpt_dir: ./results/imagenet_mini
+result_dir: ./results/select/imagenet_mini
+#ckpt_dir: ./results/select/imagenet_mini
 
 plot_freq: 2
 noise_rate: 0.2
 loss_logger:
-  name: TopkLossLogger
-  topk_rate: 0.2
+  name: ThreLossLogger
+  topk_rate: 2.5
 
 
 model:

@@ -12,11 +12,12 @@ class DataDir(object):
             DATASETS_DIR = "F:/datasets"
         elif op_sys == "Linux":
             PRETRAINED_MODELS_DIR = "/users/uestc1/zys/pretrained_models"
-            DATASETS_DIR = "/users/uestc1/zys/Datasets"
+            DATASETS_DIR = "/home/eson/Datasets"
         self.base_dir = DATASETS_DIR
 
     def get_dir(self, db_name):
         if db_name in ["tiny_imagenet", "imagenet_mini"]:
             db_name = "imagenet"
+            return "/data/ImageNet_Mini"
 
         return os.path.join(self.base_dir, db_name)

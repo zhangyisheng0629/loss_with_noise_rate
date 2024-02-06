@@ -5,6 +5,55 @@ import os
 import numpy as np
 import torch
 import torch.utils.data as data
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
+
+class ConfusionMatrixDrawer():
+    def __init__(self, class_number):
+        self.confusion = torch.zeros([class_number, class_number])
+        self.class_number = class_number
+
+    def set_class_number(self, n):
+        self.class_number = n
+
+    def update(self, label: torch.Tensor, pred: torch.Tensor):
+        for i, j in zip(label, pred):
+            self.confusion[i][j] += 1
+
+    def reset(self):
+        self.confusion = torch.zeros([self.class_number, self.class_number])
+
+    def draw(self,title=None):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        cax = ax.matshow(self.confusion.numpy())
+        fig.colorbar(cax)
+        all_categories = list("abcdefghij")
+        # Set up axes
+        ax.set_xticklabels([''] + all_categories, rotation=90)
+        ax.set_yticklabels([''] + all_categories)
+
+        # Force label at every tick
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+        ax.set_title(title)
+        # sphinx_gallery_thumbnail_number = 2
+        plt.show()
+
+        pass
+
+    def update_draw(self, loader,model,device,title=None):
+
+        for i,batch in enumerate(loader):
+            X,y=batch
+            X,y=X.to(device),y.to(device)
+            pred=model(X).argmax(1)
+
+            self.update(y,pred)
+
+        self.draw(title)
 
 
 def make_dir(path):
@@ -34,11 +83,7 @@ def save_model(dir, epoch, model, optimizer, scheduler=None, **kwargs):
     for key, value in kwargs.items():
         state[key] = value
     save_path = os.path.join(dir, 'state_dict.pth')
-
     torch.save(state, save_path)
-    # filename += '_best.pth'
-    # if save_best:
-    #     torch.save(state, filename)
     return
 
 
@@ -67,7 +112,7 @@ def patch_noise_extend_to_img(noise, image_size=[32, 32, 3], patch_location='cen
         x = np.random.randint(x_len // 2, w - x_len // 2)
         y = np.random.randint(y_len // 2, h - y_len // 2)
     else:
-        raise('Invalid patch location')
+        raise ('Invalid patch location')
 
     x1 = np.clip(x - x_len // 2, 0, h)
     x2 = np.clip(x + x_len // 2, 0, h)
@@ -78,9 +123,11 @@ def patch_noise_extend_to_img(noise, image_size=[32, 32, 3], patch_location='cen
 
 
 if __name__ == '__main__':
-    samples = torch.Tensor([[1, 1, ], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6]])
-    idx = torch.Tensor([0, 1, 2, 3, 4, 5])
-    dataset = torch.utils.data.TensorDataset(*(samples, idx))
+    cmd = ConfusionMatrixDrawer(10)
+    for i in tqdm(range(391)):
+        label = torch.randint(0, 10, [128, ])
+        pred = torch.randint(0, 10, [128, ])
+        cmd.update(label, pred)
+    print(cmd.confusion)
 
-    sub = get_subset(dataset, [1, 2, 3])
-    print(sub.dataset)
+    cmd.draw()

@@ -1,10 +1,10 @@
 db_name: cifar-10
-total_epoch: 200
+total_epoch: 60
 data_parallel: True
 result_dir: ./results/select/cifar-10
 ckpt_dir: null
 
-plot_freq: 20
+plot_freq: 5
 noise_rate: 0.2
 loss_logger:
   name: ThreLossLogger

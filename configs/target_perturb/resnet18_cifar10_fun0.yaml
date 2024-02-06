@@ -1,0 +1,36 @@
+db_name: cifar-10
+total_epoch: 200
+data_parallel: True
+log_dir: ./results/target_ue/cifar-10
+ckpt_dir: null
+target_ue: True
+
+w1: 1.0
+w2: 15.0
+
+attack:
+  name: UEPGD
+  eps: 8
+  alpha: 0.8
+  steps: 20
+#  w1: 1.0
+#  w2: 15.0
+#  poison_target_fun_num: 0 # lambda images, labels: (labels+1)%10
+
+model:
+  name: ResNet18
+  num_classes: 10
+outer_criterion:
+  name: MixCrossEntropyLoss
+  w1: 1
+  w2: 15
+
+optimizer:
+  name: SGD
+  lr: 0.01
+  weight_decay: 5e-4
+  momentum: 0.9
+scheduler:
+  name: CosineAnnealingLR
+  T_max: ${total_epoch}
+  eta_min: 0.0

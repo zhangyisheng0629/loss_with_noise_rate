@@ -1,0 +1,31 @@
+db_name: cifar-100
+total_epoch: 100
+data_parallel: True
+result_dir: ./results/select/cifar-100
+ckpt_dir: null
+
+plot_freq: 5
+noise_rate: 0.2
+loss_logger:
+  name: ThreLossLogger
+  thre_loss: 4.5
+
+model:
+  name: ResNet18
+  num_classes: 100
+
+
+criterion:
+  name: CrossEntropyLoss
+  reduction: none
+
+optimizer:
+  name: SGD
+  lr: 0.025
+  weight_decay: 5e-4
+  momentum: 0.9
+
+scheduler:
+  name: CosineAnnealingLR
+  T_max: ${total_epoch}
+  eta_min: 0.0

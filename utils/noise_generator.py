@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # author eson
+import os
 import time
+from typing import List
 
 import numpy as np
 import torch
@@ -11,7 +13,9 @@ from torchattacks import PGD
 from tqdm import tqdm
 from torchattacks.attack import Attack
 
-from train.logger import Logger
+from train_utils.logger import Logger
+from utils.common_utils import ConfusionMatrixDrawer
+from utils.criterion import MixCrossEntropyLoss, SCANLoss
 from utils.get import get_dataset
 
 if torch.cuda.is_available():
@@ -20,28 +24,23 @@ else:
     device = torch.device('cpu')
 
 
+# C=SCANLoss(entropy_weight=6.0)
 class NoiseGenerator():
-    def __init__(self, loader, order_train_loader, hl_loader, model, train_steps=10,
-                 attack: Attack = PGD,
-                 drm_attack: Attack = None):
-        self.loader = loader
+    def __init__(self, outer_train_loader, order_train_loader, model, train_steps=10,
+                 attack: PGD = None):
+        self.outer_train_loader = outer_train_loader
+        self.data_iter = iter(self.outer_train_loader)
+        self.order_train_loader = order_train_loader
+
         self.model = model
         self.train_steps = train_steps
         self.device = device
         self.attack = attack
         self.epsilon = attack.eps
         self.step_size = attack.steps
-        self.noise_len = len(order_train_loader.dataset)
-        # attack target: original label
-        # self.attack.set_mode_targeted_by_function(target_map_function=lambda images, labels: labels)
-        self.noise = torch.zeros([self.noise_len, 3, 32, 32]).cuda()
-        # self.noise = self.random_noise([50000, 3, 32, 32])
-        self.data_iter = iter(self.loader)
-        self.order_train_loader = order_train_loader
 
-        self.hl_noise = torch.zeros([self.noise_len, 3, 32, 32]).cuda()
-        self.drm_attack = drm_attack
-        self.hl_loader = hl_loader
+        self.noise_len = len(order_train_loader.dataset)
+        self.noise = torch.zeros([self.noise_len, 3, 32, 32]).cuda()
 
     def random_noise(self, noise_shape=[50000, 3, 32, 32]):
         random_noise = torch.FloatTensor(*noise_shape).uniform_(-self.epsilon, self.epsilon).to(device)
@@ -67,47 +66,22 @@ class NoiseGenerator():
             X[i] += self.noise[pos + i]
         return X, pos + X.shape[0]
 
-    def min_min_attack(self, images, labels, model, optimizer, criterion, random_noise=None, sample_wise=False):
-        """
-        PGD method to generate noise_img
-        Args:
-            images:
-            labels:
-            model:
-            optimizer:
-            criterion:
-            random_noise:
-            sample_wise:
+    def outer_optim(self, *args, **kwargs):
+        raise NotImplementedError("Outer_optim fun not be overwitten. ")
 
-        Returns:
+    def inner_optim_samplewise(self, *args, **kwargs):
+        raise NotImplementedError("Inner_optim fun not be overwitten. ")
 
-        """
+    def ue(self, *args, **kwargs):
+        raise NotImplementedError("UE fun not be overwitten. ")
 
-        adv_images = images + noise
-        adv_images = adv_images.clone().detach()
 
-        eta = random_noise
-        for _ in range(self.step_size):
-            adv_images.requires_grd = True
-            model.zero_grad()
-            if isinstance(criterion, torch.nn.CrossEntropyLoss):
-                if hasattr(model, 'classify'):
-                    model.classify = True
-                logits = model(perturb_img)
-                loss = criterion(logits, labels)
-            else:
-                logits, loss = criterion(model, perturb_img, labels, optimizer)
-            perturb_img.retain_grad()
-            loss.backward()
-            eta = self.step_size * perturb_img.grad.data.sign() * (-1)
-            # perturb_img = Variable(perturb_img.data + eta, requires_grad=True)
-            eta = torch.clamp(eta, -self.epsilon, self.epsilon)
-            perturb_img = Variable(images.data + eta, requires_grad=True)
-            perturb_img = Variable(torch.clamp(perturb_img, 0, 1), requires_grad=True)
+class UENoiseGenerator(NoiseGenerator):
+    def __init__(self, outer_train_loader, order_train_loader, model=None, train_steps=10,
+                 attack: PGD = None):
+        super().__init__(outer_train_loader, order_train_loader, model, train_steps, attack)
 
-        return perturb_img, eta
-
-    def outer_optim(self, optimizer, criterion, pos):
+    def outer_optim(self, optimizer, criterion, pos, gen_on,trans):
         """
         solve optimization problem for updating $\theta$
         Returns:
@@ -122,33 +96,35 @@ class NoiseGenerator():
             try:
                 batch = next(self.data_iter)
             except Exception as e:
-                self.data_iter = iter(self.data_iter)
+                self.data_iter = iter(self.outer_train_loader)
                 batch = next(self.data_iter)
-            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__ == "Subset":
-                (X, noise_target, true_target, if_noise) = batch.values()
-                X, y = X, noise_target
-            else:
+                pos = 0
+            if len(batch) == 2:
                 X, y = batch
+            elif len(batch) == 4:
+                if gen_on == "clean":
+                    X, _, y, _ = batch.values()
+                elif gen_on == "noise":
+                    X, y, _, _ = batch.values()
+                else:
+                    raise ValueError
             X, y = X.to(self.device), y.to(self.device)
-            # print(y)
+            X_noise = X.clone().detach()
             # add noise
-            print(pos)
-            X, pos = self.add_noise(X, pos)
-            # bug
-            # print(self.model(X))
-            # train model
-
+            X_noise, pos = self.add_noise(X_noise, pos)
+            trans_X_noise=trans(X_noise) if trans else X_noise
             optimizer.zero_grad()
-            output = self.model(X)
+            output = self.model(trans_X_noise)
+
             loss = criterion(output, y)
-            if criterion.reduction == "none":
-                loss = loss.mean()
+
+            loss = loss.mean() if len(loss.shape) >= 1 else loss
             loss.backward()
             optimizer.step()
 
         return pos
 
-    def inner_optim(self, logger: Logger):
+    def inner_optim_samplewise(self, logger, gen_on):
         """
         pgd method
         Returns:
@@ -159,80 +135,97 @@ class NoiseGenerator():
         pos = 0
         t_loader = tqdm(enumerate(self.order_train_loader), total=len(self.order_train_loader), ncols=150)
         for i, batch in t_loader:
-            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__ == "Subset":
-
-                (X, noise_target, true_target, if_noise) = batch.values()
-                X, y = X, noise_target
-            else:
+            if len(batch) == 2:
                 X, y = batch
+            elif len(batch) == 4:
+                if gen_on == "clean":
+                    X, _, y, _ = batch.values()
+                elif gen_on == "noise":
+                    X, y, _, _ = batch.values()
+                else:
+                    raise ValueError
             batch_num = X.shape[0]
 
             # train on images + noise
             images, labels = X.to(self.device), y.to(self.device)
             noise = self.noise[pos:pos + batch_num]
-            if self.attack.__class__.__name__=="PGD":
+            if self.attack.__class__.__name__ == "PGD":
                 adv_images = self.attack(images, labels)
-            elif self.attack.__class__.__name__=="UEPGD":
+            elif self.attack.__class__.__name__ in ["UEPGD", "EOTUEPGD"]:
                 adv_images = self.attack(images, labels, noise)
+
             else:
                 raise ValueError
             # eval noise
-
             output = self.model(images)
             adv_output = self.model(adv_images)
 
-            n1 = torch.sum(
-                torch.eq(
-                    torch.argmax(output, 1), labels
-                )
-            )
-
+            origin = torch.sum(torch.eq(torch.argmax(output, 1), labels))
             pred = torch.argmax(adv_output, 1)
             correct_num = torch.sum(torch.eq(pred, labels))
-
             payload = {
                 "correct_num": correct_num.item(),
                 "batch_num": batch_num
             }
             logger.log(payload)
-
-            t_loader.set_postfix(postfix=f"cur_pos|total_pos:{pos}|{len(self.loader.dataset)},"
-                                         f"correct num {n1}---->{correct_num},acc: {logger.cal_acc()}")
+            t_loader.set_postfix(postfix=f"cur_pos|total_pos:{pos}|{len(self.outer_train_loader.dataset)}, "
+                                         f"correct {origin}---->{correct_num}, "
+                                         f"acc: {logger.cal_acc():.2f}")
             pos = self.update_noise(pos, adv_images - images)
-        accuracy = logger.cal_acc()
-        return accuracy
 
-    def ue(self, optimizer, criterion, stop_error, logger):
+        return logger.cal_acc()
+
+    def immer_optim_classwise(self):
+
+        pass
+
+    def ue(self, optimizer, criterion, stop_error, logger: Logger, draw_confusion=True,
+           val_loader=None, gen_on="clean", num_classes=10,trans=None,res_folder=None):
         SUCCESS = False
         train_pos = 0
+        iterative_num=0
+        if draw_confusion:
+            assert val_loader is not None
+            cmd = ConfusionMatrixDrawer(num_classes)
         while not SUCCESS:
             # repeat to find error minimizing perturbation
+            iterative_num+=1
+            print("Iterative num {}".format(iterative_num))
             logger.new_epoch()
-            train_pos = self.outer_optim(optimizer, criterion, train_pos)
+            train_pos = self.outer_optim(optimizer, criterion, train_pos, gen_on,trans)  # train model for {steps} steps
 
-            accuracy = self.inner_optim(logger)
+            acc = self.inner_optim_samplewise(logger, gen_on)
 
-            SUCCESS = (1 - accuracy) < stop_error
+            SUCCESS = (1 - acc) < stop_error
+            if draw_confusion:
+                cmd.reset()
+                cmd.update_draw(val_loader, self.model, self.device, title="UE")
+                print(cmd.confusion)
 
+            # save
+            if res_folder:
+                print(f"Perturbation saved at {os.path.join(res_folder, 'perturbation.pt')}. ")
+                torch.save(self.noise, os.path.join(res_folder, "perturbation.pt"))
         return self.noise
 
-    def deep_representation_manipulation(self, criterion):
+    def deep_representation_manipulation(self, hl_loader, hl_attack):
+
+        self.hl_loader = hl_loader
+        self.hl_noise_len = len(hl_loader.dataset)
+        self.hl_noise = torch.zeros([self.hl_noise_len, 3, 32, 32]).cuda()
         print("deep_representation_manipulation")
 
         t_loader = tqdm(enumerate(self.hl_loader), total=len(self.hl_loader))
         pos = 0
         for i, batch in t_loader:
-            if "Noise" in self.loader.dataset.__class__.__name__ or self.loader.dataset.__class__.__name__ == "Subset":
+            if "Noise" in self.hl_loader.dataset.__class__.__name__ or self.hl_loader.dataset.__class__.__name__ == "Subset":
 
                 (X, noise_target, true_target, if_noise) = batch.values()
                 X, y = X, noise_target
             else:
                 X, y = batch
-            batch_num = X.shape[0]
-
-            # train on images + noise
-            images = X.to(self.device)
-            adv_images = self.drm_attack(images)
+            images, labels = X.to(self.device), y.to(self.device)
+            adv_images = hl_attack(images, labels)
             pos = self.update_noise(pos, adv_images - images)
             t_loader.set_postfix(postfix=f"cur_pos|total_pos:{pos}|{len(self.hl_loader.dataset)},")
 
@@ -243,8 +236,6 @@ if __name__ == '__main__':
     dataset = get_dataset(
         "ue_gen",
         "cifar-10",
-        noise_rate=0,
-        train_aug=False
     )
     train_loader = DataLoader(
         dataset=dataset["train"],
